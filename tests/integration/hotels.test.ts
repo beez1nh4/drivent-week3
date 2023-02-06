@@ -5,7 +5,7 @@ import { TicketStatus } from "@prisma/client";
 import httpStatus from "http-status";
 import * as jwt from "jsonwebtoken";
 import supertest from "supertest";
-import { createEnrollmentWithAddress, createUser, createTicketType, createTicket, createHotelType, createTicketTypeHotel } from "../factories";
+import { createEnrollmentWithAddress, createUser, createTicketType, createTicket, createHotelType, createTicketTypeHotel, createRoom } from "../factories";
 import { cleanDb, generateValidToken } from "../helpers";
 
 beforeAll(async () => {
@@ -20,7 +20,7 @@ const server = supertest(app);
 
 describe("GET /hotels", () => {
   it("should respond with status 401 if no token is given", async () => {
-    const response = await server.get("/tickets/types");
+    const response = await server.get("/hotels");
 
     expect(response.status).toBe(httpStatus.UNAUTHORIZED);
   });
@@ -65,13 +65,7 @@ describe("GET /hotels", () => {
         const enrollment = await createEnrollmentWithAddress(user);
         const token = await generateValidToken(user);
         const ticketType = await createTicketTypeHotel();
-        await prisma.ticket.create({
-            data: {
-              enrollmentId: enrollment.id,
-              ticketTypeId: ticketType.id,
-              status: "PAID",
-            },
-          });
+        await createTicket(enrollment.id, ticketType.id, TicketStatus.PAID)
 
       const hotel = await createHotelType();
 
@@ -134,32 +128,43 @@ describe("GET /hotels/:id", () => {
       expect(response.status).toEqual(httpStatus.NOT_FOUND);
     });
 
-    it("should respond with status 200 and with ticket data", async () => {
-      const user = await createUser();
-      const token = await generateValidToken(user);
-      const enrollment = await createEnrollmentWithAddress(user);
-      const ticketType = await createTicketType();
-      const ticket = await createTicket(enrollment.id, ticketType.id, TicketStatus.RESERVED);
+    it("should respond with status 200 and with room data", async () => {
+        const user = await createUser();
+        const enrollment = await createEnrollmentWithAddress(user);
+        const token = await generateValidToken(user);
+        const ticketType = await createTicketTypeHotel();
+        await createTicket(enrollment.id, ticketType.id, TicketStatus.PAID);
+        const hotel = await createHotelType();
+        const room = await createRoom(hotel.id);
+        const room2 = await createRoom(hotel.id);
 
-      const response = await server.get("/tickets").set("Authorization", `Bearer ${token}`);
+      const response = await server.get(`/hotels/${hotel.id}`).set("Authorization", `Bearer ${token}`);
 
       expect(response.status).toEqual(httpStatus.OK);
       expect(response.body).toEqual({
-        id: ticket.id,
-        status: ticket.status,
-        ticketTypeId: ticket.ticketTypeId,
-        enrollmentId: ticket.enrollmentId,
-        TicketType: {
-          id: ticketType.id,
-          name: ticketType.name,
-          price: ticketType.price,
-          isRemote: ticketType.isRemote,
-          includesHotel: ticketType.includesHotel,
-          createdAt: ticketType.createdAt.toISOString(),
-          updatedAt: ticketType.updatedAt.toISOString(),
-        },
-        createdAt: ticket.createdAt.toISOString(),
-        updatedAt: ticket.updatedAt.toISOString(),
+        id: hotel.id,
+        name: hotel.name,
+        image: hotel.image,
+        createdAt: hotel.createdAt.toISOString(),
+        updatedAt: hotel.updatedAt.toISOString(),
+        Rooms: [
+          {
+            id: room.id,
+            name: room.name,
+            capacity: room.capacity,
+            hotelId: room.hotelId,
+            createdAt: room.createdAt.toISOString(),
+            updatedAt: room.updatedAt.toISOString(),
+          },
+          {
+            id: room2.id,
+            name: room2.name,
+            capacity: room2.capacity,
+            hotelId: room2.hotelId,
+            createdAt: room2.createdAt.toISOString(),
+            updatedAt: room2.updatedAt.toISOString(),
+          }
+        ]
       });
     });
   });
