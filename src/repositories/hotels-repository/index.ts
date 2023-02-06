@@ -6,14 +6,14 @@ async function findAllHotels(): Promise<Hotel[]> {
 }
 
 async function findRoomsByHotelId(hotelId: number) {
-    return prisma.hotel.findFirst({
-      where: {
-        id: hotelId,
-      },
-      include: {
-        Rooms: true,
-      }
-    });
+  return prisma.hotel.findFirst({
+    where: {
+      id: hotelId,
+    },
+    include: {
+      Rooms: true,
+    }
+  });
 }
 
 const hotelsRepository = {
