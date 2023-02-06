@@ -1,10 +1,11 @@
 import app, { init } from "@/app";
+import { prisma } from "@/config";
 import faker from "@faker-js/faker";
 import { TicketStatus } from "@prisma/client";
 import httpStatus from "http-status";
 import * as jwt from "jsonwebtoken";
 import supertest from "supertest";
-import { createEnrollmentWithAddress, createUser, createTicketType, createTicket, createHotelType } from "../factories";
+import { createEnrollmentWithAddress, createUser, createTicketType, createTicket, createHotelType, createTicketTypeHotel } from "../factories";
 import { cleanDb, generateValidToken } from "../helpers";
 
 beforeAll(async () => {
@@ -43,25 +44,45 @@ describe("GET /hotels", () => {
 
   describe("when token is valid", () => {
     it("should respond with empty array when there are no hotels created", async () => {
-      const token = await generateValidToken();
-
+        const user = await createUser();
+        const enrollment = await createEnrollmentWithAddress(user);
+        const token = await generateValidToken(user);
+        const ticketType = await createTicketTypeHotel();
+        await prisma.ticket.create({
+            data: {
+              enrollmentId: enrollment.id,
+              ticketTypeId: ticketType.id,
+              status: "PAID",
+            },
+          });
       const response = await server.get("/hotels").set("Authorization", `Bearer ${token}`);
 
       expect(response.body).toEqual([]);
     });
 
     it("should respond with status 200 and with existing hotels data", async () => {
-      const token = await generateValidToken();
+        const user = await createUser();
+        const enrollment = await createEnrollmentWithAddress(user);
+        const token = await generateValidToken(user);
+        const ticketType = await createTicketTypeHotel();
+        await prisma.ticket.create({
+            data: {
+              enrollmentId: enrollment.id,
+              ticketTypeId: ticketType.id,
+              status: "PAID",
+            },
+          });
 
       const hotel = await createHotelType();
 
-      const response = await server.get("/tickets/types").set("Authorization", `Bearer ${token}`);
+      const response = await server.get("/hotels").set("Authorization", `Bearer ${token}`);
 
       expect(response.status).toBe(httpStatus.OK);
       expect(response.body).toEqual([
         {
           id: hotel.id,
           name: hotel.name,
+          image: hotel.image,
           createdAt: hotel.createdAt.toISOString(),
           updatedAt: hotel.updatedAt.toISOString(),
         },
